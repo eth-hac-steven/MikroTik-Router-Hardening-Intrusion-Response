@@ -1,6 +1,7 @@
 # MikroTik Router Hardening & Intrusion Response
 
-**Platform:** MikroTik RouterOS (RB2011UiAS-2HnD) — managed via Winbox
+**Platform:** MikroTik RouterOS (RB2011UiAS-2HnD) managed via Winbox
+
 **Category:** Network Security / Firewall Engineering / Incident Response
 
 ## Overview
@@ -15,7 +16,7 @@ The work is split into four phases:
 
 ---
 
-## Phase 2 — Inbound Attack Surface Reduction
+## Phase 2 : Inbound Attack Surface Reduction
 
 **Goal:** Reduce exposure of remote management services (SSH, FTP, Telnet, Winbox, HTTP/S) to the public internet.
 
@@ -37,21 +38,20 @@ select ip > Firewall > filter >
 
 **Recommended long-term control:** replace direct WAN exposure of SSH/Winbox with VPN-gated access (WireGuard), so management interfaces are only reachable from inside an authenticated tunnel, never directly from the public internet.
 
-> 🖼️ **[Screenshot placeholder: Interface List showing `ether1` added to the `WAN` list]**
-> 🖼️ **[Screenshot placeholder: Filter Rules tab showing the WAN-scoped management-port drop rule]**
+![Interface List showing `ether1` added to the `WAN` list](https://github.com/eth-hac-steven/MikroTik-Router-Hardening-Intrusion-Response/blob/main/Block%20rule%20on%20WAN%20port.png)
 
 ---
 
 ## Phase 3 — How Attackers Discover Exposed Devices
 
-A natural question: remote login requires `username@host` — so how does an attacker obtain the *host* (public IP) in the first place, with no prior information about the target?
+A natural question: remote login requires `username@host` so how does an attacker obtain the *host* (public IP) in the first place, with no prior information about the target?
 
 **The short answer: they don't need any inside knowledge. Discovery and login are two separate steps.**
 
 - **Mass internet scanning** Tools like Masscan or ZMap can sweep the entire IPv4 address space (~4.3 billion addresses) for open ports in minutes to hours. Every public IP, including a home/office router's WAN address, is a candidate no targeting required, just a response on a scanned port.
 - **Scanning search engines (Shodan, Censys)** These continuously index every internet-facing device that responds on common ports, often including the service banner (e.g. "MikroTik RouterOS"). An attacker can search by port, country, or device fingerprint and get a ready-made list of exposed IPs.
 - **ISP range sweeps** ISP-owned IP blocks are publicly known (WHOIS/RIR records). Attackers often sweep entire ISP ranges systematically, since a percentage of consumer/business routers in any given range will have something open.
-- **No credentials needed to *find* the target** The `username@host` syntax only applies to the login attempt itself. Determining that a host exists and has FTP/SSH open is just a connectivity probe — zero authentication involved. Once discovered, automated tools cycle through common usernames (`admin`, `web`, `root`, `ftp`, `user`...) against that IP, which is exactly the pattern captured in the Phase 4 logs below.
+- **No credentials needed to *find* the target** The `username@host` syntax only applies to the login attempt itself. Determining that a host exists and has FTP/SSH open is just a connectivity probe zero authentication involved. Once discovered, automated tools cycle through common usernames (`admin`, `web`, `root`, `ftp`, `user`...) against that IP, which is exactly the pattern captured in the Phase 4 logs below.
 
 This is the practical justification for Phase 2: blocking one attacking IP after the fact stops that one attempt, but closing the exposed port stops the router from ever appearing as a live target to the next scan.
 
@@ -63,21 +63,23 @@ This is the practical justification for Phase 2: blocking one attacking IP after
 
 ### Evidence
 
-```
-2026-08-15 14:4x  system, error, critical  login failure for user web from 202.77.96.130 via ftp
-2026-08-15 14:4x  system, error, critical  login failure for user web from 202.77.96.130 via ftp
-2026-08-15 14:4x  system, error, critical  login failure for user web from 202.77.96.130 via ftp
-... (repeated in rapid succession)
-```
+![Mal-ip-1](https://github.com/eth-hac-steven/MikroTik-Router-Hardening-Intrusion-Response/blob/main/Mal-sus%20ip%20attempting%20connections%20via%20ssh.png)
 
-> 🖼️ **[Screenshot placeholder: Log window filtered to `critical`/`account` topics showing the repeated FTP login failures from 202.77.96.130]**
+![Mal-ip-1pt2](https://github.com/eth-hac-steven/MikroTik-Router-Hardening-Intrusion-Response/blob/main/REd-flag%20on%20small%20mkiro%20tik.png)
+
+![Mal-ip2](https://github.com/eth-hac-steven/MikroTik-Router-Hardening-Intrusion-Response/blob/main/Red-flag%20number%202.png)
+
+![Mal-ip1pt2](https://github.com/eth-hac-steven/MikroTik-Router-Hardening-Intrusion-Response/blob/main/another%20mal%20ip%20attempting%20connction%20%20via%20ssh.png)
+
 
 **Analysis:**
 - Multiple source IP (`202.77.96.130`,`176.53.159.198`,`2.57.121.211`), Multiple username (`web`,`admin`, `rpc`, `root`, `ftp`, `user`,`postgres`), rapid repeated 5 times attempts consistent with an automated/scripted brute-force or credential-stuffing tool rather than manual login attempts
 - Cross-referenced a nearby log entry (`user admin logged in from 192.168.88.x via winbox`) to rule out that this was a legitimate but misremembered login confirmed as the administrator's own known device
-- Cross-referenced with IPabuseDB and virustotal to verify history of malicious attempt with this ip 
+- Cross-referenced with [IPAbuseDB](https://github.com/eth-hac-steven/MikroTik-Router-Hardening-Intrusion-Response/blob/main/redflag3.png) and [Virustotal](https://github.com/eth-hac-steven/MikroTik-Router-Hardening-Intrusion-Response/blob/main/soc-VT%20reports.png) to verify history of malicious attempt with this ip 
 - **5 times** burst attempt is very important here as this is the grace/max attempt that legitimate user can enter and get their password wrong before an account lock-out after 5 times the user name changes as seen, so this would normally go undetected.
-this is a prime example of Threat actors exploiting "Standard" IT/Cyber Procedures.
+
+This is a prime example of Threat actors exploiting "Standard" IT/Cyber Procedures.
+
 - The Automated script being run here has a dictionary list of Default/common username and password 
   
 ### Containment
@@ -95,8 +97,7 @@ By creating the Address list blacklist  any other identified Mal ip will be adde
 
 Rule placed at the top of the `input` chain to ensure it is evaluated before any accept rules(First-match-wins principle).
 
-> 🖼️ **[Screenshot placeholder: Address Lists tab showing `blacklist` entry for `202.77.96.130`,`176.53.159.198`,`2.57.121.211`]**
-> 🖼️ **[Screenshot placeholder: Filter Rules tab showing the blacklist drop rule positioned at the top of the input chain]**
+![Blocking-malicious-ip](https://github.com/eth-hac-steven/MikroTik-Router-Hardening-Intrusion-Response/blob/main/Blocking%20Mal-ips.png)
 
 ### Follow-up hardening (recommended)
 - Disable the FTP service entirely under `IP → Services` if not actively required
