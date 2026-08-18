@@ -16,7 +16,7 @@ The work is split into four phases:
 
 ---
 
-## Phase 2 : Inbound Attack Surface Reduction
+## Phase 2: Inbound Attack Surface Reduction
 
 **Goal:** Reduce exposure of remote management services (SSH, FTP, Telnet, Winbox, HTTP/S) to the public internet.
 
@@ -42,7 +42,7 @@ select ip > Firewall > filter >
 
 ---
 
-## Phase 3 — How Attackers Discover Exposed Devices
+## Phase 3: How Attackers Discover Exposed Devices
 
 A natural question: remote login requires `username@host` so how does an attacker obtain the *host* (public IP) in the first place, with no prior information about the target?
 
@@ -57,7 +57,7 @@ This is the practical justification for Phase 2: blocking one attacking IP after
 
 ---
 
-## Phase 4 — Incident Detection & Response
+## Phase 4:  Incident Detection & Response
 
 **Trigger:** Routine log review (`Log` window, filtered by `critical` / `account` topics) surfaced a burst of repeated authentication failures.
 
